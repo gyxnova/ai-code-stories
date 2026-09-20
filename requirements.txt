@@ -1,0 +1,22 @@
+# LLM story generation
+groq
+
+# Hugging Face Space + ZeroGPU
+gradio
+spaces
+
+# Diffusion pipeline + LoRA loading
+diffusers
+transformers
+accelerate
+safetensors
+peft
+
+# Image handling / compositing
+Pillow
+
+# Core
+torch
+huggingface_hub
+
+python-dotenv
