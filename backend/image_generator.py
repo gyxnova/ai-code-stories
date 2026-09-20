@@ -28,8 +28,8 @@ def get_pipeline():
         checkpoint_path,
         torch_dtype=torch.float16,
     )
-    pipe.load_lora_weights("models/narrator_lora.safetensors", adapter_name="narrator")
-    pipe.load_lora_weights("models/worker_lora.safetensors", adapter_name="worker")
+    pipe.load_lora_weights("narrator_lora.safetensors", adapter_name="narrator")
+    pipe.load_lora_weights("worker_lora.safetensors", adapter_name="worker")
     pipe.enable_vae_tiling()
     pipe.enable_vae_slicing()
 
