@@ -20,3 +20,5 @@ torch
 huggingface_hub
 
 python-dotenv
+
+transformers<5
