@@ -1,6 +1,6 @@
 import gradio as gr
 from story_generator import generate_story
-from image_generator import generate_panel
+from image_generator import generate_panel,debug_three_way_test
 
 
 def generate_story_only(topic: str):
@@ -21,6 +21,16 @@ def generate_full_story(topic: str):
 
     return images, story["quiz"], story
 
+def run_debug_test():
+    test_panel = {
+        "narrator_action": "crouching, inspecting a glowing node",
+        "scene": "inside glowing code corridor",
+        "workers_present": ["orange"],
+    }
+    return debug_three_way_test(test_panel)
+
+
+
 
 with gr.Blocks(title="AI Code Stories") as demo:
     gr.Markdown("# AI Code Stories\nType an AI/ML topic to generate a visual story.")
@@ -28,10 +38,15 @@ with gr.Blocks(title="AI Code Stories") as demo:
     with gr.Row():
         topic_input = gr.Textbox(label="Topic", placeholder="e.g. Gradient Descent")
         generate_btn = gr.Button("Generate Story", variant="primary")
+        # Add near your other buttons:
+        debug_btn = gr.Button("Debug: 3-Way LoRA Test")
+
 
     gallery = gr.Gallery(label="Story Panels", columns=3)
     quiz_output = gr.JSON(label="Quiz")
     script_output = gr.JSON(label="Full Script (debug)")
+
+    debug_btn.click(fn=run_debug_test, inputs=[], outputs=[gallery])
 
     generate_btn.click(
         fn=generate_full_story,
