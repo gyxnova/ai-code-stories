@@ -4,9 +4,12 @@ from diffusers import StableDiffusionXLPipeline
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
+
 NEGATIVE_PROMPT = (
     "lowres, bad anatomy, worst quality, text, watermark, blurry, extra limbs, "
-    "goggles, denim, 1girl, female, feminine, bare legs"
+    "goggles, denim, 1girl, female, feminine, bare legs, "
+    "multiple people, duplicate, twins, clone, extra person, two men, "
+    "child, chibi body, small body, kid, young child"
 )
 
 _pipe = None
@@ -49,16 +52,19 @@ def get_pipeline():
 
 def build_prompt(panel: dict) -> str:
     narrator_desc = (
-        "narrator, 1boy, male, long messy pink hair, blue eyes, dangling earring, "
-        "oversized white t-shirt, black cargo pants, white sneakers"
+        "solo, 1boy, male, adult, narrator, long messy pink hair, blue eyes, "
+        "dangling earring, oversized white t-shirt, black cargo pants, "
+        "white sneakers"
     )
     worker_descs = [
-        f"chibi robot worker, {color} glowing eyes, {color} chest stripe"
+        f"(chibi robot worker:1.3), ({color} glowing eyes:1.3), {color} chest stripe"
         for color in panel.get("workers_present", [])
     ]
     parts = [panel["narrator_action"], narrator_desc, *worker_descs,
               panel["scene"], "cel shading, anime coloring, masterpiece"]
     return ", ".join(parts)
+
+
 
 
 @spaces.GPU  # ZeroGPU: this decorator is what actually gets you GPU time on the Space
@@ -70,7 +76,7 @@ def generate_panel(panel: dict, seed: int = None):
     weights = [1.0]
     if panel.get("workers_present"):
         active_adapters.append("worker")
-        weights.append(1.0)
+        weights.append(0.7)
     pipe.set_adapters(active_adapters, adapter_weights=weights)
 
     generator = torch.Generator(device="cpu")
@@ -86,3 +92,25 @@ def generate_panel(panel: dict, seed: int = None):
     ).images[0]
 
     return image
+
+test_panel = {
+    "narrator_action": "crouching, inspecting a glowing node",
+    "scene": "inside glowing code corridor",
+    "workers_present": ["orange"],
+}
+
+# Narrator only
+pipe.set_adapters(["narrator"], adapter_weights=[1.0])
+img_narrator_only = generate_panel(test_panel, seed=42)
+img_narrator_only.save("test_narrator_only.png")
+
+# Worker only (temporarily strip narrator_desc from build_prompt for this test,
+# or just check output focuses on the worker rendering correctly alone)
+pipe.set_adapters(["worker"], adapter_weights=[1.0])
+img_worker_only = generate_panel(test_panel, seed=42)
+img_worker_only.save("test_worker_only.png")
+
+# Both, at the new lower weight
+pipe.set_adapters(["narrator", "worker"], adapter_weights=[1.0, 0.5])
+img_both = generate_panel(test_panel, seed=42)
+img_both.save("test_both.png")
