@@ -67,50 +67,34 @@ def build_prompt(panel: dict) -> str:
 
 
 
-@spaces.GPU  # ZeroGPU: this decorator is what actually gets you GPU time on the Space
-def generate_panel(panel: dict, seed: int = None):
-    pipe = get_pipeline().to("cuda")  # moved to cuda only inside the GPU-decorated call
+@spaces.GPU
+def debug_three_way_test(panel: dict, seed: int = 42):
+    """Diagnostic: generates narrator-only, worker-only, and both-together
+    versions of the same panel, to isolate whether LoRA combination is the
+    actual problem."""
+    pipe = get_pipeline().to("cuda")
 
     prompt = build_prompt(panel)
-    active_adapters = ["narrator"]
-    weights = [1.0]
-    if panel.get("workers_present"):
-        active_adapters.append("worker")
-        weights.append(0.7)
-    pipe.set_adapters(active_adapters, adapter_weights=weights)
 
-    generator = torch.Generator(device="cpu")
-    if seed is not None:
-        generator = generator.manual_seed(seed)
-
-    image = pipe(
-        prompt=prompt,
-        negative_prompt=NEGATIVE_PROMPT,
-        num_inference_steps=25,
-        guidance_scale=7,
-        generator=generator,
+    pipe.set_adapters(["narrator"], adapter_weights=[1.0])
+    img_narrator_only = pipe(
+        prompt=prompt, negative_prompt=NEGATIVE_PROMPT,
+        num_inference_steps=25, guidance_scale=7,
+        generator=torch.Generator(device="cpu").manual_seed(seed),
     ).images[0]
 
-    return image
+    pipe.set_adapters(["worker"], adapter_weights=[1.0])
+    img_worker_only = pipe(
+        prompt=prompt, negative_prompt=NEGATIVE_PROMPT,
+        num_inference_steps=25, guidance_scale=7,
+        generator=torch.Generator(device="cpu").manual_seed(seed),
+    ).images[0]
 
-test_panel = {
-    "narrator_action": "crouching, inspecting a glowing node",
-    "scene": "inside glowing code corridor",
-    "workers_present": ["orange"],
-}
+    pipe.set_adapters(["narrator", "worker"], adapter_weights=[1.0, 0.5])
+    img_both = pipe(
+        prompt=prompt, negative_prompt=NEGATIVE_PROMPT,
+        num_inference_steps=25, guidance_scale=7,
+        generator=torch.Generator(device="cpu").manual_seed(seed),
+    ).images[0]
 
-# Narrator only
-pipe.set_adapters(["narrator"], adapter_weights=[1.0])
-img_narrator_only = generate_panel(test_panel, seed=42)
-img_narrator_only.save("test_narrator_only.png")
-
-# Worker only (temporarily strip narrator_desc from build_prompt for this test,
-# or just check output focuses on the worker rendering correctly alone)
-pipe.set_adapters(["worker"], adapter_weights=[1.0])
-img_worker_only = generate_panel(test_panel, seed=42)
-img_worker_only.save("test_worker_only.png")
-
-# Both, at the new lower weight
-pipe.set_adapters(["narrator", "worker"], adapter_weights=[1.0, 0.5])
-img_both = generate_panel(test_panel, seed=42)
-img_both.save("test_both.png")
+    return [img_narrator_only, img_worker_only, img_both]
